@@ -14,6 +14,9 @@ import NightPhase from './components/NightPhase';
 import DayPhase from './components/DayPhase';
 
 export default function App() {
+  // Добавляем состояние для хранения данных пользователя из Telegram
+  const [tgUser, setTgUser] = useState<any>(null);
+
   const [gameState, setGameState] = useState<GameState>({
     players: [],
     phase: 'SETUP',
@@ -25,6 +28,21 @@ export default function App() {
     winner: null,
     history: [],
   });
+
+  // Вызываем Telegram Web App при загрузке
+  useEffect(() => {
+    // Проверяем, существует ли объект Telegram (на случай запуска в обычном браузере)
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.ready(); // Говорим Telegram, что приложение готово
+      tg.expand(); // Разворачиваем на весь экран для красоты
+      
+      // Получаем данные пользователя, если приложение открыто в Telegram
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        setTgUser(tg.initDataUnsafe.user);
+      }
+    }
+  }, []);
 
   const checkVictory = (currentPlayers: Player[]) => {
     const aliveMafia = currentPlayers.filter(p => p.isAlive && p.role === 'Mafia').length;
@@ -153,6 +171,13 @@ export default function App() {
       <Background />
       
       <div className="game-container">
+        {/* Индикатор того, что Telegram SDK успешно загружен и увидел пользователя */}
+        {tgUser && (
+          <div className="absolute top-4 left-4 z-50 text-[10px] text-white/50 font-mono bg-black/40 px-2 py-1 rounded-md border border-white/10">
+            Игрок: {tgUser.first_name}
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {gameState.phase === 'SETUP' && (
             <GameSetup key="setup" onStart={handleStartGame} />

@@ -35,3 +35,12 @@ export interface GameState {
   winner: 'Mafia' | 'Civilians' | null;
   history: string[];
 }
+
+// Расширяем глобальный объект Window для Telegram Web App
+declare global {
+  interface Window {
+    Telegram: {
+      WebApp: any;
+    };
+  }
+}
