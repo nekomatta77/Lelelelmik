@@ -13,7 +13,17 @@ interface SetupProps {
 }
 
 export default function GameSetup({ onStart }: SetupProps) {
-  const [names, setNames] = useState<string[]>(['Алексей', 'Мария', 'Иван', 'Елена', 'Дмитрий', 'Анна']);
+  const [names, setNames] = useState<string[]>(() => {
+    // Пытаемся получить игроков из URL-ссылки, которую прислал бот
+    const params = new URLSearchParams(window.location.search);
+    const playersParam = params.get('players');
+    if (playersParam) {
+      return playersParam.split(',');
+    }
+    // Если зашли просто так (без бота), показываем дефолтных
+    return ['Алексей', 'Мария', 'Иван', 'Елена', 'Дмитрий', 'Анна']; 
+});
+
   const [newName, setNewName] = useState('');
 
   const [error, setError] = useState<string | null>(null);
