@@ -84,9 +84,9 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
       exit={{ opacity: 0, scale: 0.95 }}
       className="flex flex-col items-center justify-center h-full p-6 w-full z-10"
     >
-      {/* НЕОНОВЫЙ ДРАКОН */}
+      {/* НЕОНОВЫЙ ДРАКОН (ОБНОВЛЕННЫЙ ПУТЬ) */}
       <motion.img 
-        src="/DragonMafia.webp" 
+        src="/assets/DragonMafia.webp" 
         alt="DragonChat Mafia" 
         className="w-48 h-auto mb-4 drop-shadow-[0_0_25px_rgba(176,38,255,0.4)]"
         initial={{ opacity: 0, scale: 0.9 }}
