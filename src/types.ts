@@ -17,7 +17,7 @@ export type GamePhase =
 export interface Player {
   id: string;
   name: string;
-  role: Role; // С сервера может прийти null, если игрок не должен видеть эту роль
+  role: Role;
   isAlive: boolean;
   ready: boolean;
 }
@@ -36,6 +36,12 @@ export interface GameState {
   winner: 'Mafia' | 'Civilians' | null;
   messages: ChatMessage[];
   detectiveResult: string | null;
+  nightStatus: {
+    Mafia: boolean;
+    Detective: boolean;
+    Doctor: boolean;
+  };
+  voteCounts: Record<string, number>;
 }
 
 declare global {

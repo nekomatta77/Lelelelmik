@@ -5,22 +5,25 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Play, FlaskConical } from 'lucide-react';
+import { Users, Play, Settings, Plus, Minus } from 'lucide-react';
 import { Player } from '../types';
 
 interface SetupProps {
-  players: Player[]; // Теперь мы берем игроков напрямую из App.tsx! (Супер-оптимизация)
+  players: Player[];
   tgUser: any;
 }
 
 export default function GameSetup({ players, tgUser }: SetupProps) {
   const [admins, setAdmins] = useState<string[]>([]);
+  const [roleSettings, setRoleSettings] = useState<Record<string, number>>({
+    Mafia: 1,
+    Detective: 1,
+    Doctor: 1
+  });
   const [error, setError] = useState<string | null>(null);
 
   const API_URL = import.meta.env.DEV ? 'http://178.217.99.4:8080' : '';
-  const DRAGON_IMG = { scale: 1.1, x: 0, y: 0 };
 
-  // Автоматическое добавление игрока в лобби
   useEffect(() => {
     if (tgUser) {
       const displayName = tgUser.username ? `@${tgUser.username}` : tgUser.first_name;
@@ -30,39 +33,57 @@ export default function GameSetup({ players, tgUser }: SetupProps) {
         body: JSON.stringify({ 
           user_id: tgUser.id, 
           user_name: displayName, 
-          username: tgUser.username || "",
-          action: "join" 
+          username: tgUser.username || ""
         })
-      }).catch(err => console.error("Ошибка при входе в лобби:", err));
+      }).catch(err => console.error(err));
     }
   }, [tgUser, API_URL]);
 
-  // Разово запрашиваем список админов при открытии (чтобы не спамить запросами)
+  // Получаем админов и текущие настройки с сервера
   useEffect(() => {
     fetch(`${API_URL}/api/lobby`)
       .then(res => res.json())
-      .then(data => { if (data.admins) setAdmins(data.admins); })
+      .then(data => {
+        if (data.admins) setAdmins(data.admins);
+        if (data.settings?.roles) setRoleSettings(data.settings.roles);
+      })
       .catch(err => console.error(err));
   }, [API_URL]);
 
-  const handleStart = async (isDemo = false) => {
-    if (!isDemo && players.length < 4) {
-      setError('Нужно минимум 4 игрока для начала игры');
+  const updateRoleCount = async (role: string, delta: number) => {
+    const newVal = Math.max(0, (roleSettings[role] || 0) + delta);
+    const newSettings = { ...roleSettings, [role]: newVal };
+    setRoleSettings(newSettings);
+
+    // Сразу сохраняем на сервер
+    await fetch(`${API_URL}/api/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: tgUser.username, roles: newSettings })
+    });
+  };
+
+  const handleStart = async () => {
+    const totalActiveRoles = Object.values(roleSettings).reduce((a, b) => a + b, 0);
+    if (players.length < 4) {
+      setError('Нужно минимум 4 игрока');
+      return;
+    }
+    if (totalActiveRoles >= players.length) {
+      setError('Слишком много ролей для такого числа игроков');
       return;
     }
 
-    if (tgUser?.username) {
-      try {
-        const res = await fetch(`${API_URL}/api/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: tgUser.username })
-        });
-        const data = await res.json();
-        if (data.status === 'error') setError(data.message);
-      } catch (e: any) {
-        setError(`Ошибка запуска: ${e.message}`);
-      }
+    try {
+      const res = await fetch(`${API_URL}/api/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: tgUser.username })
+      });
+      const data = await res.json();
+      if (data.status === 'error') setError(data.message);
+    } catch (e: any) {
+      setError(`Ошибка: ${e.message}`);
     }
   };
 
@@ -70,92 +91,64 @@ export default function GameSetup({ players, tgUser }: SetupProps) {
   const isAdmin = myUsername && admins.map(a => a.toLowerCase()).includes(myUsername);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      exit={{ opacity: 0, scale: 0.95 }} 
-      className="flex flex-col items-center justify-start h-[100dvh] w-full p-4 z-10 overflow-hidden"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-start h-[100dvh] w-full p-4 z-10 overflow-hidden">
       <div className="text-center w-full pt-4 shrink-0">
-        <span className="text-[10px] uppercase tracking-[0.3em] text-rose-mafia font-bold mb-1 block">
-          @caburacasino
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1">
-          DRAGONCHAT <span className="role-serif text-rose-mafia">Mafia</span>
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">DRAGONCHAT <span className="role-serif text-rose-mafia">Mafia</span></h1>
       </div>
 
-      <div className="w-full flex items-center justify-center relative h-[20vh] mb-4 shrink-0">
-        <motion.img 
-          src="/assets/DragonMafia.webp" 
-          alt="DragonChat Mafia" 
-          className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_35px_rgba(176,38,255,0.5)]" 
-          initial={{ opacity: 0, scale: 0.9, x: DRAGON_IMG.x, y: DRAGON_IMG.y }} 
-          animate={{ opacity: 1, scale: DRAGON_IMG.scale, x: DRAGON_IMG.x, y: DRAGON_IMG.y }} 
-          transition={{ duration: 0.8, ease: "easeOut" }} 
-        />
-      </div>
-
-      <motion.div className="w-full flex flex-col flex-1 min-h-0 pb-2">
-        <div className="glass-card w-full p-4 flex flex-col gap-3 flex-1 min-h-0 bg-[#110022]/70">
+      <motion.div className="w-full flex flex-col flex-1 min-h-0 pb-2 mt-4 space-y-4">
+        
+        {/* СПИСОК ИГРОКОВ */}
+        <div className="glass-card w-full p-4 flex flex-col gap-3 h-1/2 bg-[#110022]/70">
           <div className="flex items-center justify-between border-b border-[#b026ff]/20 pb-2 shrink-0">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-rose-mafia" />
               <span className="font-semibold text-xs text-[#e0b0ff]">УЧАСТНИКИ ({players.length})</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-[9px] text-white/50 uppercase tracking-widest font-bold">LOBBY</span>
-            </div>
           </div>
-
           <div className="overflow-y-auto flex-1 pr-1 space-y-2 custom-scrollbar">
-            {players.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-[#b026ff]/40 text-xs text-center italic py-2">
-                Ожидание игроков...
+            {players.map((p, i) => (
+              <div key={p.id} className="flex items-center p-2 bg-[#4b0082]/20 rounded-xl border border-[#b026ff]/20">
+                <span className="text-xs text-white truncate">{p.name}</span>
               </div>
-            ) : (
-              <AnimatePresence mode="popLayout">
-                {players.map((p, i) => (
-                  <motion.div 
-                    key={p.id} 
-                    initial={{ opacity: 0, x: -10 }} 
-                    animate={{ opacity: 1, x: 0 }} 
-                    exit={{ opacity: 0, x: 10 }} 
-                    className="flex items-center p-2 bg-[#4b0082]/20 rounded-xl border border-[#b026ff]/20 shadow-sm"
-                  >
-                    <div className="w-6 h-6 shrink-0 rounded-full bg-[#4b0082]/60 flex items-center justify-center text-[9px] font-bold border border-[#b026ff]/50 mr-2 text-[#e0b0ff]">
-                      {String(i + 1).padStart(2, '0')}
-                    </div>
-                    <span className="font-medium text-xs tracking-wide text-white truncate">{p.name}</span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            )}
+            ))}
           </div>
-          
-          <AnimatePresence>
-            {error && (
-              <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-rose-mafia text-[10px] font-bold text-center mt-1 shrink-0">
-                {error}
-              </motion.p>
-            )}
-          </AnimatePresence>
         </div>
 
-        <div className="flex gap-2 mt-4 shrink-0 pb-1">
+        {/* НАСТРОЙКИ (Только для админа) */}
+        {isAdmin && (
+          <div className="glass-card w-full p-4 flex flex-col gap-3 bg-[#110022]/70 border-blue-500/30">
+            <div className="flex items-center gap-2 border-b border-blue-500/20 pb-2">
+              <Settings className="w-4 h-4 text-blue-400" />
+              <span className="font-semibold text-xs text-blue-100 uppercase">Настройка ролей</span>
+            </div>
+            <div className="space-y-3">
+              {Object.entries(roleSettings).map(([role, count]) => (
+                <div key={role} className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-white/80">{role === 'Mafia' ? 'Мафия' : role === 'Detective' ? 'Детектив' : 'Врач'}</span>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => updateRoleCount(role, -1)} className="p-1 rounded-lg bg-white/5 border border-white/10 active:scale-90"><Minus className="w-3 h-3" /></button>
+                    <span className="text-sm font-bold w-4 text-center">{count}</span>
+                    <button onClick={() => updateRoleCount(role, 1)} className="p-1 rounded-lg bg-white/5 border border-white/10 active:scale-90"><Plus className="w-3 h-3" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 shrink-0">
+          <AnimatePresence>
+            {error && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-rose-mafia text-[10px] font-bold text-center">{error}</motion.p>}
+          </AnimatePresence>
+          
           {isAdmin ? (
-            <>
-              <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleStart(false)} className="btn-primary flex-1 flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-[#b026ff]/50 py-4">
-                <Play className="w-4 h-4 fill-current" /> Начать игру
-              </motion.button>
-              <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleStart(true)} className="btn-secondary flex-none px-4 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-white/20 py-4">
-                <FlaskConical className="w-4 h-4" /> Демо
-              </motion.button>
-            </>
+            <button onClick={handleStart} className="btn-primary w-full flex items-center justify-center gap-2 text-xs uppercase py-4">
+              <Play className="w-4 h-4 fill-current" /> Начать битву
+            </button>
           ) : (
             <div className="text-[#b026ff]/60 text-xs text-center w-full py-4 border border-[#b026ff]/20 rounded-xl bg-[#4b0082]/10 italic">
-              Ожидаем запуск игры администратором...
+              Ожидание Высшего Дракона...
             </div>
           )}
         </div>

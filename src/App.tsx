@@ -12,7 +12,7 @@ import GameSetup from './components/Setup';
 import RoleReveal from './components/RoleReveal';
 import NightPhase from './components/NightPhase';
 import DayPhase from './components/DayPhase';
-import DeadScreen from './components/DeadScreen'; // ИМПОРТИРУЕМ НОВЫЙ ЭКРАН
+import DeadScreen from './components/DeadScreen'; 
 
 const API_URL = import.meta.env.DEV ? 'http://178.217.99.4:8080' : '';
 
@@ -25,7 +25,9 @@ export default function App() {
     deathThisRound: null,
     winner: null,
     messages: [],
-    detectiveResult: null
+    detectiveResult: null,
+    nightStatus: { Mafia: false, Detective: false, Doctor: false },
+    voteCounts: {}
   });
 
   useEffect(() => {
@@ -41,24 +43,18 @@ export default function App() {
     setTgUser({ id: 111111, first_name: "Админ (ПК)", username: "homienekomatta" });
   }, []);
 
-  // ОПТИМИЗИРОВАННЫЙ ЦИКЛ ЗАПРОСОВ
   useEffect(() => {
     if (!tgUser) return;
-    
     const fetchState = async () => {
       try {
         const res = await fetch(`${API_URL}/api/state?user_id=${tgUser.id}`);
         if (!res.ok) return;
         const data = await res.json();
-        
-        // 🔥 ГЛАВНАЯ ОПТИМИЗАЦИЯ: Обновляем интерфейс ТОЛЬКО если данные изменились.
-        // Это полностью уберет лаги и мерцания каждую секунду!
         setGameState(prev => JSON.stringify(prev) !== JSON.stringify(data) ? data : prev);
       } catch (err) {
         console.error("Ошибка синхронизации:", err);
       }
     };
-
     const interval = setInterval(fetchState, 2000);
     return () => clearInterval(interval);
   }, [tgUser]);
@@ -77,7 +73,6 @@ export default function App() {
   const handleVote = (targetId: string | null) => apiCall('/api/vote', { target_id: targetId });
   const handleSendMessage = (text: string) => apiCall('/api/chat', { text });
 
-  // Логика состояний игрока
   const me = gameState.players.find(p => p.id === tgUser?.id?.toString());
   const isDead = me && !me.isAlive;
   const isGameOver = gameState.phase === 'GAME_OVER';
@@ -88,17 +83,14 @@ export default function App() {
       <div className="game-container flex-1 bg-transparent w-full max-w-md mx-auto relative flex flex-col min-h-0">
         <AnimatePresence mode="wait">
           
-          {/* ЛОББИ - Передаем игроков напряму, чтобы не делать лишних запросов в Setup */}
           {gameState.phase === 'SETUP' && (
             <GameSetup key="setup" players={gameState.players} tgUser={tgUser} />
           )}
 
-          {/* ЭКРАН СМЕРТИ - Показываем если игрок мертв, а игра еще идет */}
           {isDead && !isGameOver && gameState.phase !== 'SETUP' && (
             <DeadScreen key="dead" />
           )}
 
-          {/* ВСЕ ОСТАЛЬНЫЕ ФАЗЫ - Показываем ТОЛЬКО живым игрокам (!isDead) */}
           {!isDead && gameState.phase === 'REVEAL' && (
             <RoleReveal 
               key="reveal" 
@@ -115,6 +107,7 @@ export default function App() {
               myId={tgUser?.id?.toString()}
               onAction={handleNightAction}
               checkedPlayerResult={gameState.detectiveResult}
+              nightStatus={gameState.nightStatus}
             />
           )}
 
@@ -126,6 +119,7 @@ export default function App() {
               myId={tgUser?.id?.toString()}
               deathId={gameState.deathThisRound}
               messages={gameState.messages}
+              voteCounts={gameState.voteCounts}
               onNextPhase={handleNextPhase}
               onReadyToVote={handleReady}
               onVote={handleVote}
