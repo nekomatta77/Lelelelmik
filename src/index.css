@@ -3,8 +3,8 @@
 
 @theme {
   --color-noir: #0a0014;
-  --color-rose-mafia: #b026ff; /* Неоново-фиолетовый */
-  --color-rose-mafia-dark: #4b0082; /* Темно-фиолетовый */
+  --color-rose-mafia: #b026ff; 
+  --color-rose-mafia-dark: #4b0082; 
   --color-slate-mafia: #110022;
   
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -39,16 +39,41 @@
   }
 }
 
+.game-container {
+  @apply w-full max-w-md min-h-screen mx-auto relative flex flex-col;
+}
+
+/* --- ОПТИМИЗИРОВАННЫЕ АНИМАЦИИ ФОНА --- */
+
 @keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+  /* Используем translate3d для GPU-ускорения */
+  0% { transform: translate3d(0, -100%, 0); }
+  100% { transform: translate3d(0, 100%, 0); }
 }
 
 .scanline {
   background: linear-gradient(to bottom, transparent, rgba(176,38,255,0.1), transparent);
   animation: scanline 8s linear infinite;
+  will-change: transform;
 }
 
-.game-container {
-  @apply w-full max-w-md min-h-screen mx-auto relative flex flex-col;
+@keyframes blob-1 {
+  0%, 100% { transform: scale(1) translate3d(0,0,0); opacity: 0.2; }
+  50% { transform: scale(1.2) translate3d(0,0,0); opacity: 0.4; }
+}
+
+@keyframes blob-2 {
+  0%, 100% { transform: scale(1) translate3d(0,0,0); opacity: 0.1; }
+  50% { transform: scale(1.5) translate3d(0,0,0); opacity: 0.3; }
+}
+
+.blob-1 {
+  animation: blob-1 10s infinite linear;
+  will-change: transform, opacity;
+}
+
+.blob-2 {
+  animation: blob-2 15s infinite linear;
+  animation-delay: 2s;
+  will-change: transform, opacity;
 }
