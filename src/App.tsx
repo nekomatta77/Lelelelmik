@@ -29,6 +29,7 @@ export default function App() {
   });
 
   useEffect(() => {
+    // 1. Пытаемся инициализировать реальный Telegram WebApp
     if (window.Telegram && window.Telegram.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
@@ -36,8 +37,18 @@ export default function App() {
       
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         setTgUser(tg.initDataUnsafe.user);
+        return; // Если данные получены, выходим из useEffect
       }
     }
+
+    // 2. РЕЖИМ ТЕСТИРОВАНИЯ (Fallback для ПК)
+    // Если мы не в Telegram или данные не пришли, создаем тестового админа
+    console.warn("Telegram WebApp не обнаружен. Включен режим тестирования для пользователя @homienekomatta");
+    setTgUser({
+      id: 111111,
+      first_name: "Админ (ПК)",
+      username: "homienekomatta" // Твой никнейм для проверки прав администратора
+    });
   }, []);
 
   const checkVictory = (currentPlayers: Player[]) => {
@@ -163,6 +174,8 @@ export default function App() {
       <Background />
       
       <div className="game-container flex-1 bg-transparent w-full max-w-md mx-auto relative flex flex-col min-h-0">
+        {/* ТАБЛИЧКА "ИГРОК" УДАЛЕНА  */}
+
         <AnimatePresence mode="wait">
           {gameState.phase === 'SETUP' && (
             <GameSetup key="setup" onStart={handleStartGame} tgUser={tgUser} />
