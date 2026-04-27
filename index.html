@@ -4,9 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
     
     <link rel="preload" href="/assets/DragonMafia.webp" as="image">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <script>
+      if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      }
+    </script>
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
@@ -26,7 +37,7 @@
         left: 50%;
         transform: translate(-50%, -50%);
         color: #b026ff;
-        font-family: sans-serif;
+        font-family: 'Inter', sans-serif;
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 2px;
@@ -46,7 +57,6 @@
     <script type="module" src="/src/main.tsx"></script>
     
     <script>
-      // Прячем надпись "Загрузка логова...", как только React начинает работать
       window.addEventListener('load', () => {
         const loader = document.getElementById('initial-loader');
         if (loader) loader.style.display = 'none';
