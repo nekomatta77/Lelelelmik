@@ -18,8 +18,9 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
   const [admins, setAdmins] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Оставляем пустым, чтобы Vercel проксировал запросы на сервер
-  const API_URL = '';
+  // Если запускаем локально (npm run dev) — стучимся на сервер по IP.
+  // Если на Vercel (продакшен) — оставляем пустым, чтобы работал vercel.json.
+  const API_URL = import.meta.env.DEV ? 'http://178.217.99.4:8080' : '';
 
   const DRAGON_IMG = {
     scale: 1.1,
