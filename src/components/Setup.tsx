@@ -14,12 +14,12 @@ interface SetupProps {
 }
 
 export default function GameSetup({ onStart, tgUser }: SetupProps) {
-  const [names, setNames] = useState<string[]>([]);
+  const [names, setNames] = useState<any[]>([]);
   const [admins, setAdmins] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // УБРАЛИ IP-АДРЕС! Теперь используем пустое значение, чтобы запросы шли через прокси Vercel
-  const API_URL = ''; 
+  // Оставляем пустым, чтобы Vercel проксировал запросы на сервер
+  const API_URL = '';
 
   const DRAGON_IMG = {
     scale: 1.1,
@@ -27,10 +27,10 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     y: 0
   };
 
+  // 1. Автоматический вход при запуске
   useEffect(() => {
     if (tgUser) {
       const displayName = tgUser.username ? `@${tgUser.username}` : tgUser.first_name;
-      
       fetch(`${API_URL}/api/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,20 +40,34 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           username: tgUser.username || "",
           action: "join" 
         })
-      }).catch(err => console.error("Ошибка API", err));
+      }).catch(err => console.error("Ошибка API Join", err));
     }
   }, [tgUser]);
 
+  // 2. Получение лобби и старт игры
   useEffect(() => {
     const fetchLobby = async () => {
       try {
         const res = await fetch(`${API_URL}/api/lobby`);
         const data = await res.json();
+        
         if (data.players) {
-          setNames(data.players.map((p: any) => p.name));
+          setNames(data.players);
         }
         if (data.admins) {
           setAdmins(data.admins);
+        }
+
+        // Если сервер перевел фазу в REVEAL (админ нажал "Начать игру")
+        if (data.phase === 'REVEAL' && data.players.length > 0) {
+          const formattedPlayers: Player[] = data.players.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            role: p.role || 'Civilian',
+            isAlive: true,
+            isRevealed: false
+          }));
+          onStart(formattedPlayers);
         }
       } catch (err) {
         console.error("Ошибка лобби", err);
@@ -63,16 +77,23 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     fetchLobby();
     const interval = setInterval(fetchLobby, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [onStart]);
 
   const handleStart = async (isDemo = false) => {
     let currentNames = [...names];
     
     if (isDemo && currentNames.length < 4) {
-      const bots = ["Игрок 1", "Игрок 2", "Игрок 3", "Игрок 4"];
+      const bots = [
+        { id: "b1", name: "Игрок 1", username: "" },
+        { id: "b2", name: "Игрок 2", username: "" },
+        { id: "b3", name: "Игрок 3", username: "" },
+        { id: "b4", name: "Игрок 4", username: "" }
+      ];
       let i = 0;
       while (currentNames.length < 4) {
-        if (!currentNames.includes(bots[i])) currentNames.push(bots[i]);
+        if (!currentNames.some(p => p.name === bots[i].name)) {
+          currentNames.push(bots[i]);
+        }
         i++;
       }
     } else if (currentNames.length < 4) {
@@ -80,43 +101,56 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
       return;
     }
 
+    // Если не демо, отправляем запрос на сервер, чтобы он раздал роли
     if (!isDemo && tgUser?.username) {
       try {
-        await fetch(`${API_URL}/api/start`, {
+        const res = await fetch(`${API_URL}/api/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: tgUser.username })
         });
+        const data = await res.json();
+        if (data.status === 'error') {
+          setError(data.message);
+          return;
+        }
       } catch (e) {
         console.error("Ошибка старта", e);
+        setError("Ошибка связи с сервером");
+        return;
       }
     }
 
-    const mafiaCount = Math.max(1, Math.floor(currentNames.length / 4));
-    let roles: Role[] = [];
-    
-    for (let i = 0; i < mafiaCount; i++) roles.push('Mafia');
-    roles.push('Detective');
-    roles.push('Doctor');
-    
-    while (roles.length < currentNames.length) {
-      roles.push('Civilian');
-    }
-    
-    roles = roles.sort(() => Math.random() - 0.5);
+    // Если это демо, раздаем роли локально
+    if (isDemo) {
+        const mafiaCount = Math.max(1, Math.floor(currentNames.length / 4));
+        let roles: Role[] = [];
+        
+        for (let i = 0; i < mafiaCount; i++) roles.push('Mafia');
+        roles.push('Detective');
+        roles.push('Doctor');
+        
+        while (roles.length < currentNames.length) {
+          roles.push('Civilian');
+        }
+        
+        roles = roles.sort(() => Math.random() - 0.5);
 
-    const players: Player[] = currentNames.map((name, i) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      name,
-      role: roles[i],
-      isAlive: true,
-      isRevealed: false,
-    }));
-    
-    onStart(players);
+        const players: Player[] = currentNames.map((p, i) => ({
+          id: p.id || Math.random().toString(36).substr(2, 9),
+          name: p.name,
+          role: roles[i],
+          isAlive: true,
+          isRevealed: false,
+        }));
+        
+        onStart(players);
+    }
   };
 
-  const isAdmin = tgUser?.username && admins.map(a => a.toLowerCase()).includes(tgUser.username.toLowerCase());
+  // Проверяем, является ли текущий пользователь администратором
+  const myUsername = tgUser?.username?.replace("@", "").toLowerCase();
+  const isAdmin = myUsername && admins.map(a => a.toLowerCase()).includes(myUsername);
 
   return (
     <motion.div 
@@ -165,9 +199,9 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
               </div>
             ) : (
               <AnimatePresence mode="popLayout">
-                {names.map((name, i) => (
+                {names.map((p, i) => (
                   <motion.div 
-                    key={i + name} 
+                    key={p.id || i} 
                     initial={{ opacity: 0, x: -10 }} 
                     animate={{ opacity: 1, x: 0 }} 
                     exit={{ opacity: 0, x: 10 }} 
@@ -176,7 +210,7 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
                     <div className="w-6 h-6 shrink-0 rounded-full bg-[#4b0082]/60 flex items-center justify-center text-[9px] font-bold border border-[#b026ff]/50 mr-2 text-[#e0b0ff]">
                       {String(i + 1).padStart(2, '0')}
                     </div>
-                    <span className="font-medium text-xs tracking-wide text-white truncate">{name}</span>
+                    <span className="font-medium text-xs tracking-wide text-white truncate">{p.name}</span>
                   </motion.div>
                 ))}
               </AnimatePresence>
