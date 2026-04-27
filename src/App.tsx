@@ -17,9 +17,15 @@ export default function App() {
   const [tgUser, setTgUser] = useState<any>(null);
 
   const [gameState, setGameState] = useState<GameState>({
-    players: [], phase: 'SETUP', round: 1, lastKillAttempt: null, 
-    lastHealTarget: null, lastCheckedPlayer: null, deathThisRound: null, 
-    winner: null, history: [],
+    players: [],
+    phase: 'SETUP',
+    round: 1,
+    lastKillAttempt: null,
+    lastHealTarget: null,
+    lastCheckedPlayer: null,
+    deathThisRound: null,
+    winner: null,
+    history: [],
   });
 
   useEffect(() => {
@@ -27,20 +33,29 @@ export default function App() {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
-      if (tg.initDataUnsafe && tg.initDataUnsafe.user) setTgUser(tg.initDataUnsafe.user);
+      
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        setTgUser(tg.initDataUnsafe.user);
+      }
     }
   }, []);
 
   const checkVictory = (currentPlayers: Player[]) => {
     const aliveMafia = currentPlayers.filter(p => p.isAlive && p.role === 'Mafia').length;
     const aliveCivilians = currentPlayers.filter(p => p.isAlive && p.role !== 'Mafia').length;
+
     if (aliveMafia === 0) return 'Civilians';
     if (aliveMafia >= aliveCivilians) return 'Mafia';
     return null;
   };
 
-  const handleStartGame = (players: Player[]) => setGameState(prev => ({ ...prev, players, phase: 'REVEAL' }));
-  const handleRoleRevealComplete = () => setGameState(prev => ({ ...prev, phase: 'NIGHT_START' }));
+  const handleStartGame = (players: Player[]) => {
+    setGameState(prev => ({ ...prev, players, phase: 'REVEAL' }));
+  };
+
+  const handleRoleRevealComplete = () => {
+    setGameState(prev => ({ ...prev, phase: 'NIGHT_START' }));
+  };
 
   const handleNightAction = (targetId: string) => {
     setGameState(prev => {
@@ -52,14 +67,25 @@ export default function App() {
       const hasDetective = prev.players.some(p => p.isAlive && p.role === 'Detective');
       const hasDoctor = prev.players.some(p => p.isAlive && p.role === 'Doctor');
 
-      if (prev.phase === 'NIGHT_START') nextPhase = 'NIGHT_MAFIA';
-      else if (prev.phase === 'NIGHT_MAFIA') { lastKillAttempt = targetId; nextPhase = hasDetective ? 'NIGHT_DETECTIVE' : (hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY'); }
-      else if (prev.phase === 'NIGHT_DETECTIVE') {
-        if (!targetId && lastCheckedPlayer) { lastCheckedPlayer = null; nextPhase = hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY'; } 
-        else if (targetId) { const target = prev.players.find(p => p.id === targetId); lastCheckedPlayer = target ? { id: target.id, role: target.role } : null; } 
-        else nextPhase = hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY';
-      } 
-      else if (prev.phase === 'NIGHT_DOCTOR') { lastHealTarget = targetId; nextPhase = 'DAY_STORY'; }
+      if (prev.phase === 'NIGHT_START') {
+        nextPhase = 'NIGHT_MAFIA';
+      } else if (prev.phase === 'NIGHT_MAFIA') {
+        lastKillAttempt = targetId;
+        nextPhase = hasDetective ? 'NIGHT_DETECTIVE' : (hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY');
+      } else if (prev.phase === 'NIGHT_DETECTIVE') {
+        if (!targetId && lastCheckedPlayer) {
+          lastCheckedPlayer = null;
+          nextPhase = hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY';
+        } else if (targetId) {
+          const target = prev.players.find(p => p.id === targetId);
+          lastCheckedPlayer = target ? { id: target.id, role: target.role } : null;
+        } else {
+          nextPhase = hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY';
+        }
+      } else if (prev.phase === 'NIGHT_DOCTOR') {
+        lastHealTarget = targetId;
+        nextPhase = 'DAY_STORY';
+      }
 
       let deathThisRound = null;
       let finalPlayers = prev.players;
@@ -68,13 +94,24 @@ export default function App() {
       if (nextPhase === 'DAY_STORY') {
         if (lastKillAttempt !== lastHealTarget && lastKillAttempt) {
           deathThisRound = lastKillAttempt;
-          finalPlayers = prev.players.map(p => p.id === lastKillAttempt ? { ...p, isAlive: false } : p);
+          finalPlayers = prev.players.map(p => 
+            p.id === lastKillAttempt ? { ...p, isAlive: false } : p
+          );
         }
         winner = checkVictory(finalPlayers);
         if (winner) nextPhase = 'GAME_OVER';
       }
 
-      return { ...prev, phase: nextPhase, lastKillAttempt, lastHealTarget, lastCheckedPlayer, deathThisRound, players: finalPlayers, winner };
+      return {
+        ...prev,
+        phase: nextPhase,
+        lastKillAttempt,
+        lastHealTarget,
+        lastCheckedPlayer,
+        deathThisRound,
+        players: finalPlayers,
+        winner,
+      };
     });
   };
 
@@ -84,18 +121,44 @@ export default function App() {
       let winner = prev.winner;
       let nextPhase: GamePhase = 'NIGHT_START';
 
-      if (targetId) finalPlayers = prev.players.map(p => p.id === targetId ? { ...p, isAlive: false } : p);
+      if (targetId) {
+        finalPlayers = prev.players.map(p => 
+          p.id === targetId ? { ...p, isAlive: false } : p
+        );
+      }
+
       winner = checkVictory(finalPlayers);
       if (winner) nextPhase = 'GAME_OVER';
 
-      return { ...prev, players: finalPlayers, phase: nextPhase, winner, round: prev.round + 1, lastKillAttempt: null, lastHealTarget: null, lastCheckedPlayer: null, deathThisRound: null };
+      return {
+        ...prev,
+        players: finalPlayers,
+        phase: nextPhase,
+        winner,
+        round: prev.round + 1,
+        lastKillAttempt: null,
+        lastHealTarget: null,
+        lastCheckedPlayer: null,
+        deathThisRound: null,
+      };
     });
   };
 
-  const resetGame = () => setGameState({ players: [], phase: 'SETUP', round: 1, lastKillAttempt: null, lastHealTarget: null, lastCheckedPlayer: null, deathThisRound: null, winner: null, history: [] });
+  const resetGame = () => {
+    setGameState({
+      players: [],
+      phase: 'SETUP',
+      round: 1,
+      lastKillAttempt: null,
+      lastHealTarget: null,
+      lastCheckedPlayer: null,
+      deathThisRound: null,
+      winner: null,
+      history: [],
+    });
+  };
 
   return (
-    // ГЛАВНАЯ ОБЕРТКА ФИКСИРУЕТСЯ ПО ВЫСОТЕ
     <div className="relative h-[100dvh] w-full bg-[#0a0014] overflow-hidden flex flex-col">
       <Background />
       
@@ -107,22 +170,55 @@ export default function App() {
         )}
 
         <AnimatePresence mode="wait">
-          {gameState.phase === 'SETUP' && <GameSetup key="setup" onStart={handleStartGame} tgUser={tgUser} />}
-          {gameState.phase === 'REVEAL' && <RoleReveal key="reveal" players={gameState.players} onComplete={handleRoleRevealComplete} />}
-          {gameState.phase.startsWith('NIGHT') && <NightPhase key="night" players={gameState.players} phase={gameState.phase} onAction={handleNightAction} checkedPlayer={gameState.lastCheckedPlayer} />}
-          {(gameState.phase === 'DAY_STORY' || gameState.phase === 'DAY_VOTING') && <DayPhase key="day" players={gameState.players} deathId={gameState.deathThisRound} isVoting={gameState.phase === 'DAY_VOTING'} onStartVoting={() => setGameState(p => ({ ...p, phase: 'DAY_VOTING' }))} onVote={handleVote} />}
-          
+          {gameState.phase === 'SETUP' && (
+            <GameSetup key="setup" onStart={handleStartGame} tgUser={tgUser} />
+          )}
+
+          {gameState.phase === 'REVEAL' && (
+            <RoleReveal 
+              key="reveal" 
+              players={gameState.players} 
+              onComplete={handleRoleRevealComplete} 
+            />
+          )}
+
+          {gameState.phase.startsWith('NIGHT') && (
+            <NightPhase 
+              key="night"
+              players={gameState.players}
+              phase={gameState.phase}
+              onAction={handleNightAction}
+              checkedPlayer={gameState.lastCheckedPlayer}
+            />
+          )}
+
+          {(gameState.phase === 'DAY_STORY' || gameState.phase === 'DAY_VOTING') && (
+            <DayPhase 
+              key="day"
+              players={gameState.players}
+              deathId={gameState.deathThisRound}
+              isVoting={gameState.phase === 'DAY_VOTING'}
+              onStartVoting={() => setGameState(p => ({ ...p, phase: 'DAY_VOTING' }))}
+              onVote={handleVote}
+            />
+          )}
+
           {gameState.phase === 'GAME_OVER' && (
-            <motion.div key="game-over" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center p-8 text-center h-full w-full z-10">
+            <motion.div 
+              key="game-over"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center p-8 text-center h-full w-full z-10"
+            >
               <div className="glass-card p-8 w-full flex flex-col items-center border-rose-mafia/40">
                 <Trophy className="w-16 h-16 text-rose-mafia mb-6 animate-bounce" />
-                <h2 className="text-3xl font-black mb-1 uppercase tracking-tighter">ПОБЕДА</h2>
-                <div className={`text-3xl font-black mb-10 tracking-widest ${gameState.winner === 'Mafia' ? 'text-rose-mafia' : 'text-blue-400'}`}>
-                  {gameState.winner === 'Mafia' ? 'ОХОТНИКОВ' : 'СТАИ ДРАКОНОВ'}
+                <h2 className="text-3xl font-black mb-1 uppercase tracking-tighter">ИГРА ОКОНЧЕНА</h2>
+                <div className={`text-2xl font-black mb-10 tracking-widest ${gameState.winner === 'Mafia' ? 'text-rose-mafia' : 'text-blue-400'}`}>
+                  ПОБЕДА {gameState.winner === 'Mafia' ? 'ОХОТНИКОВ' : 'СТАИ ДРАКОНОВ'}
                 </div>
                 
                 <div className="w-full space-y-2 mb-10 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                  <div className="text-white/40 uppercase tracking-widest text-[10px] mb-2">Итоги игры</div>
+                  <div className="text-white/40 uppercase tracking-widest text-[10px] mb-2 text-center">Роли игроков</div>
                   {gameState.players.map(p => (
                     <div key={p.id} className="flex items-center justify-between p-3 glass-card rounded-xl border-white/10 mb-2">
                       <span className={`text-xs font-semibold ${p.isAlive ? 'text-white' : 'text-white/40'}`}>{p.name}</span>
@@ -133,9 +229,9 @@ export default function App() {
                   ))}
                 </div>
 
-                <button onClick={resetGame} className="btn-primary w-full flex items-center justify-center gap-3">
+                <button onClick={resetGame} className="btn-primary w-full flex items-center justify-center gap-3 py-4">
                   <RotateCcw className="w-5 h-5" />
-                  НОВОЕ ЛОГОВО
+                  В ЛОГОВО
                 </button>
               </div>
             </motion.div>

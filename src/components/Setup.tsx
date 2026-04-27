@@ -19,8 +19,12 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
 
   const API_URL = 'http://178.217.99.4:8080';
 
-  // НАСТРОЙКИ ПОЗИЦИИ И РАЗМЕРА ДРАКОНА
-  const DRAGON_IMG = { scale: 1.0, x: 0, y: 0 };
+  // НАСТРОЙКИ ДРАКОНА (Позиция под названием)
+  const DRAGON_IMG = {
+    scale: 1.1, // Масштаб дракона
+    x: 0,
+    y: 0
+  };
 
   useEffect(() => {
     if (tgUser && tgUser.first_name) {
@@ -53,13 +57,13 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
   const handleStart = (isDemo = false) => {
     let currentNames = [...names];
     
-    // 🧪 ДЕМО-РЕЖИМ: Если игроков меньше 4, добавляем ботов
     if (isDemo && currentNames.length < 4) {
-      const bots = ["Дракон-бот 1", "Дракон-бот 2", "Дракон-бот 3", "Дракон-бот 4"];
+      const bots = ["Беззубик (Бот)", "Дневная Фурия", "Громгильда", "Сарделька"];
       let i = 0;
       while (currentNames.length < 4) {
         if (!currentNames.includes(bots[i])) currentNames.push(bots[i]);
         i++;
+        if (i >= bots.length) i = 0;
       }
     } else if (currentNames.length < 4) {
       setError('Нужно минимум 4 дракона для начала игры');
@@ -94,38 +98,41 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      // h-[100dvh] и overflow-hidden делают страницу нескроллируемой
-      className="flex flex-col items-center justify-between h-[100dvh] w-full p-4 z-10 overflow-hidden"
+      // Главный контейнер на весь экран, flex-col
+      className="flex flex-col items-center justify-start h-[100dvh] w-full p-4 z-10 overflow-hidden"
     >
-      {/* ИЗОБРАЖЕНИЕ (Умеет само сжиматься) */}
-      <div className="flex-1 min-h-0 flex items-center justify-center w-full relative">
+      {/* 1. ЗАГОЛОВОК (СВЕРХУ) */}
+      <div className="text-center w-full pt-2 shrink-0">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-rose-mafia font-bold mb-1 block">
+          @caburacasino
+        </span>
+        <motion.h1 
+          className="text-2xl sm:text-3xl font-bold tracking-tight mb-1"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          DRAGONCHAT <span className="role-serif text-rose-mafia">Mafia</span>
+        </motion.h1>
+      </div>
+
+      {/* 2. КОНТЕЙНЕР ДЛЯ ДРАКОНА (ТЕПЕРЬ СРАЗУ ПОД НАЗВАНИЕМ) */}
+      {/* Мы уменьшили его высоту до 22vh, чтобы освободить место для списка */}
+      <div className="w-full flex items-center justify-center relative h-[22vh] mb-4 shrink-0">
         <motion.img 
           src="/assets/DragonMafia.webp" 
           alt="DragonChat Mafia" 
-          className="max-h-[90%] max-w-[80%] object-contain drop-shadow-[0_0_25px_rgba(176,38,255,0.4)]"
+          className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_35px_rgba(176,38,255,0.5)]"
           initial={{ opacity: 0, scale: 0.9, x: DRAGON_IMG.x, y: DRAGON_IMG.y }}
           animate={{ opacity: 1, scale: DRAGON_IMG.scale, x: DRAGON_IMG.x, y: DRAGON_IMG.y }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         />
       </div>
 
-      {/* ИНТЕРФЕЙС ЛОББИ */}
-      <motion.div className="w-full flex flex-col shrink-0 max-h-[60vh]">
-        <div className="text-center mb-3">
-          <span className="text-[9px] uppercase tracking-[0.3em] text-rose-mafia font-bold mb-1 block">
-            @caburacasino
-          </span>
-          <motion.h1 
-            className="text-2xl sm:text-3xl font-bold tracking-tight mb-1"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            DRAGONCHAT <span className="role-serif text-rose-mafia">Mafia</span>
-          </motion.h1>
-        </div>
-
-        <div className="glass-card w-full p-4 flex flex-col gap-3 max-h-[30vh] bg-[#110022]/60">
+      {/* 3. ИНТЕРФЕЙС ЛОББИ И КНОПКИ (ТЕПЕРЬ flex-1, ЗАНИМАЕТ ВСЁ МЕСТО) */}
+      <motion.div className="w-full flex flex-col flex-1 min-h-0 pb-2">
+        {/* glass-card теперь flex-1, чтобы растягиваться */}
+        <div className="glass-card w-full p-4 flex flex-col gap-3 flex-1 min-h-0 bg-[#110022]/70">
           <div className="flex items-center justify-between border-b border-[#b026ff]/20 pb-2 shrink-0">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-rose-mafia" />
@@ -137,9 +144,10 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
             </div>
           </div>
 
+          {/* Список участников flex-1, overflow-y-auto */}
           <div className="overflow-y-auto flex-1 pr-1 space-y-2 custom-scrollbar">
             {names.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-[#b026ff]/40 text-xs text-center italic">
+              <div className="h-full flex items-center justify-center text-[#b026ff]/40 text-xs text-center italic py-2">
                 Ждем первых драконов...
               </div>
             ) : (
@@ -176,22 +184,21 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           </AnimatePresence>
         </div>
 
-        {/* ПАНЕЛЬ КНОПОК */}
-        <div className="flex gap-2 mt-4 shrink-0">
+        {/* ПАНЕЛЬ КНОПОК (ВНИЗУ) */}
+        <div className="flex gap-2 mt-4 shrink-0 pb-1">
           <motion.button 
             whileTap={{ scale: 0.95 }}
             onClick={() => handleStart(false)}
-            className="btn-primary flex-1 flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-[#b026ff]/50"
+            className="btn-primary flex-1 flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-[#b026ff]/50 py-4"
           >
             <Play className="w-4 h-4 fill-current" />
-            Начать
+            Начать игру
           </motion.button>
           
-          {/* КНОПКА ДЕМО-РЕЖИМА */}
           <motion.button 
             whileTap={{ scale: 0.95 }}
             onClick={() => handleStart(true)}
-            className="btn-secondary flex-none px-4 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-white/20"
+            className="btn-secondary flex-none px-4 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-white/20 py-4"
             title="Запустить с ботами для теста"
           >
             <FlaskConical className="w-4 h-4" />
