@@ -6,26 +6,24 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, Play, FlaskConical } from 'lucide-react';
-import { Player, Role } from '../types';
+import { Player } from '../types';
 
 interface SetupProps {
-  onStart: (players: Player[]) => void;
+  players: Player[]; // Теперь мы берем игроков напрямую из App.tsx! (Супер-оптимизация)
   tgUser: any;
 }
 
-export default function GameSetup({ onStart, tgUser }: SetupProps) {
-  const [names, setNames] = useState<any[]>([]);
+export default function GameSetup({ players, tgUser }: SetupProps) {
   const [admins, setAdmins] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const API_URL = import.meta.env.DEV ? 'http://178.217.99.4:8080' : '';
-
   const DRAGON_IMG = { scale: 1.1, x: 0, y: 0 };
 
+  // Автоматическое добавление игрока в лобби
   useEffect(() => {
     if (tgUser) {
       const displayName = tgUser.username ? `@${tgUser.username}` : tgUser.first_name;
-      
       fetch(`${API_URL}/api/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,57 +37,21 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     }
   }, [tgUser, API_URL]);
 
+  // Разово запрашиваем список админов при открытии (чтобы не спамить запросами)
   useEffect(() => {
-    const fetchLobby = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/lobby`);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        
-        if (data.players) setNames(data.players);
-        if (data.admins) setAdmins(data.admins);
-
-        if (data.phase === 'REVEAL' && data.players.length > 0) {
-          const formattedPlayers: Player[] = data.players.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            role: p.role || 'Civilian',
-            isAlive: true,
-            ready: false // Исправлено: добавлено свойство ready
-          }));
-          onStart(formattedPlayers);
-        }
-      } catch (err: any) {
-        console.error("Ошибка обновления лобби:", err);
-      }
-    };
-    
-    fetchLobby();
-    const interval = setInterval(fetchLobby, 2000);
-    return () => clearInterval(interval);
-  }, [onStart, API_URL]);
+    fetch(`${API_URL}/api/lobby`)
+      .then(res => res.json())
+      .then(data => { if (data.admins) setAdmins(data.admins); })
+      .catch(err => console.error(err));
+  }, [API_URL]);
 
   const handleStart = async (isDemo = false) => {
-    let currentNames = [...names];
-    
-    if (isDemo && currentNames.length < 4) {
-      const bots = [
-        { id: "b1", name: "Игрок 1", username: "" },
-        { id: "b2", name: "Игрок 2", username: "" },
-        { id: "b3", name: "Игрок 3", username: "" },
-        { id: "b4", name: "Игрок 4", username: "" }
-      ];
-      let i = 0;
-      while (currentNames.length < 4) {
-        if (!currentNames.some(p => p.name === bots[i].name)) currentNames.push(bots[i]);
-        i++;
-      }
-    } else if (currentNames.length < 4) {
+    if (!isDemo && players.length < 4) {
       setError('Нужно минимум 4 игрока для начала игры');
       return;
     }
 
-    if (!isDemo && tgUser?.username) {
+    if (tgUser?.username) {
       try {
         const res = await fetch(`${API_URL}/api/start`, {
           method: 'POST',
@@ -97,33 +59,10 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           body: JSON.stringify({ username: tgUser.username })
         });
         const data = await res.json();
-        if (data.status === 'error') {
-          setError(data.message);
-          return;
-        }
+        if (data.status === 'error') setError(data.message);
       } catch (e: any) {
         setError(`Ошибка запуска: ${e.message}`);
-        return;
       }
-    }
-
-    if (isDemo) {
-        const mafiaCount = Math.max(1, Math.floor(currentNames.length / 4));
-        let roles: Role[] = [];
-        for (let i = 0; i < mafiaCount; i++) roles.push('Mafia');
-        roles.push('Detective');
-        roles.push('Doctor');
-        while (roles.length < currentNames.length) roles.push('Civilian');
-        roles = roles.sort(() => Math.random() - 0.5);
-
-        const players: Player[] = currentNames.map((p, i) => ({
-          id: p.id || Math.random().toString(36).substr(2, 9),
-          name: p.name,
-          role: roles[i],
-          isAlive: true,
-          ready: false // Исправлено: добавлено свойство ready
-        }));
-        onStart(players);
     }
   };
 
@@ -162,7 +101,7 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           <div className="flex items-center justify-between border-b border-[#b026ff]/20 pb-2 shrink-0">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-rose-mafia" />
-              <span className="font-semibold text-xs text-[#e0b0ff]">УЧАСТНИКИ ({names.length})</span>
+              <span className="font-semibold text-xs text-[#e0b0ff]">УЧАСТНИКИ ({players.length})</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
@@ -171,15 +110,15 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           </div>
 
           <div className="overflow-y-auto flex-1 pr-1 space-y-2 custom-scrollbar">
-            {names.length === 0 ? (
+            {players.length === 0 ? (
               <div className="h-full flex items-center justify-center text-[#b026ff]/40 text-xs text-center italic py-2">
                 Ожидание игроков...
               </div>
             ) : (
               <AnimatePresence mode="popLayout">
-                {names.map((p, i) => (
+                {players.map((p, i) => (
                   <motion.div 
-                    key={p.id || i} 
+                    key={p.id} 
                     initial={{ opacity: 0, x: -10 }} 
                     animate={{ opacity: 1, x: 0 }} 
                     exit={{ opacity: 0, x: 10 }} 
@@ -197,12 +136,7 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           
           <AnimatePresence>
             {error && (
-              <motion.p 
-                initial={{ opacity: 0, height: 0 }} 
-                animate={{ opacity: 1, height: 'auto' }} 
-                exit={{ opacity: 0, height: 0 }} 
-                className="text-rose-mafia text-[10px] font-bold text-center mt-1 shrink-0"
-              >
+              <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-rose-mafia text-[10px] font-bold text-center mt-1 shrink-0">
                 {error}
               </motion.p>
             )}
@@ -212,18 +146,10 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
         <div className="flex gap-2 mt-4 shrink-0 pb-1">
           {isAdmin ? (
             <>
-              <motion.button 
-                whileTap={{ scale: 0.95 }} 
-                onClick={() => handleStart(false)} 
-                className="btn-primary flex-1 flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-[#b026ff]/50 py-4"
-              >
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleStart(false)} className="btn-primary flex-1 flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-[#b026ff]/50 py-4">
                 <Play className="w-4 h-4 fill-current" /> Начать игру
               </motion.button>
-              <motion.button 
-                whileTap={{ scale: 0.95 }} 
-                onClick={() => handleStart(true)} 
-                className="btn-secondary flex-none px-4 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-white/20 py-4"
-              >
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleStart(true)} className="btn-secondary flex-none px-4 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-white/20 py-4">
                 <FlaskConical className="w-4 h-4" /> Демо
               </motion.button>
             </>
