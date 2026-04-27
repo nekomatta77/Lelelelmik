@@ -2,9 +2,8 @@
 @import "tailwindcss";
 
 @theme {
-  /* Заменяем красные цвета на фиолетовые */
-  --color-noir: #0a0014; /* Очень глубокий темный фиолетовый для фона */
-  --color-rose-mafia: #b026ff; /* Неоновый фиолетовый для акцентов */
+  --color-noir: #0a0014;
+  --color-rose-mafia: #b026ff; /* Неоново-фиолетовый */
   --color-rose-mafia-dark: #4b0082; /* Темно-фиолетовый */
   --color-slate-mafia: #110022;
   
@@ -19,7 +18,7 @@
   }
 
   .glass-card {
-    @apply bg-[#2e004f]/40 backdrop-blur-md border border-[#b026ff]/30 rounded-3xl shadow-2xl;
+    @apply bg-[#2e004f]/30 backdrop-blur-md border border-[#b026ff]/30 rounded-3xl shadow-2xl;
   }
 
   .mafia-gradient {

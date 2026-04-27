@@ -159,22 +159,12 @@ export default function App() {
   };
 
   return (
-    // Добавляем стиль с Беззубиком на задний фон
-    <div 
-      className="relative min-h-screen"
-      style={{
-        backgroundImage: 'url("/toothless_bg.png")',
-        backgroundSize: '100% auto',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'bottom center',
-        backgroundColor: '#0a0014'
-      }}
-    >
+    <div className="relative min-h-screen bg-[#0a0014]">
       <Background />
       
-      <div className="game-container bg-black/40 backdrop-blur-[2px]">
+      <div className="game-container bg-transparent">
         {tgUser && (
-          <div className="absolute top-4 left-4 z-50 text-[10px] text-purple-300/80 font-mono bg-black/60 px-2 py-1 rounded-md border border-purple-500/30">
+          <div className="absolute top-4 left-4 z-50 text-[10px] text-[#b026ff]/80 font-mono bg-black/60 px-2 py-1 rounded-md border border-[#b026ff]/30">
             Дракон: {tgUser.first_name}
           </div>
         )}
