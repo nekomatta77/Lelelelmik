@@ -15,6 +15,7 @@ interface SetupProps {
 
 export default function GameSetup({ onStart, tgUser }: SetupProps) {
   const [names, setNames] = useState<string[]>([]);
+  const [admins, setAdmins] = useState<string[]>([]); // Сохраняем список админов
   const [error, setError] = useState<string | null>(null);
 
   const API_URL = 'http://178.217.99.4:8080';
@@ -26,11 +27,19 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
   };
 
   useEffect(() => {
-    if (tgUser && tgUser.first_name) {
+    if (tgUser) {
+      // Используем @никнейм, если его нет — обычное имя
+      const displayName = tgUser.username ? `@${tgUser.username}` : tgUser.first_name;
+      
       fetch(`${API_URL}/api/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_name: tgUser.first_name, action: "join" })
+        body: JSON.stringify({ 
+          user_id: tgUser.id, 
+          user_name: displayName, 
+          username: tgUser.username || "",
+          action: "join" 
+        })
       }).catch(err => console.error("Ошибка API", err));
     }
   }, [tgUser]);
@@ -41,7 +50,11 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
         const res = await fetch(`${API_URL}/api/lobby`);
         const data = await res.json();
         if (data.players) {
-          setNames(data.players);
+          // Вытаскиваем только имена из массива объектов {id, name}
+          setNames(data.players.map((p: any) => p.name));
+        }
+        if (data.admins) {
+          setAdmins(data.admins);
         }
       } catch (err) {
         console.error("Ошибка лобби", err);
@@ -53,7 +66,7 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleStart = (isDemo = false) => {
+  const handleStart = async (isDemo = false) => {
     let currentNames = [...names];
     
     if (isDemo && currentNames.length < 4) {
@@ -66,6 +79,19 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     } else if (currentNames.length < 4) {
       setError('Нужно минимум 4 игрока для начала игры');
       return;
+    }
+
+    // Сообщаем серверу, что игра началась (чтобы бот написал в чат Телеграма)
+    if (!isDemo && tgUser?.username) {
+      try {
+        await fetch(`${API_URL}/api/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: tgUser.username })
+        });
+      } catch (e) {
+        console.error("Ошибка старта", e);
+      }
     }
 
     const mafiaCount = Math.max(1, Math.floor(currentNames.length / 4));
@@ -91,6 +117,9 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     
     onStart(players);
   };
+
+  // Проверяем, является ли текущий пользователь администратором
+  const isAdmin = tgUser?.username && admins.map(a => a.toLowerCase()).includes(tgUser.username.toLowerCase());
 
   return (
     <motion.div 
@@ -171,21 +200,30 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           </AnimatePresence>
         </div>
 
+        {/* Условный рендеринг кнопок только для администраторов */}
         <div className="flex gap-2 mt-4 shrink-0 pb-1">
-          <motion.button 
-            whileTap={{ scale: 0.95 }} 
-            onClick={() => handleStart(false)} 
-            className="btn-primary flex-1 flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-[#b026ff]/50 py-4"
-          >
-            <Play className="w-4 h-4 fill-current" /> Начать игру
-          </motion.button>
-          <motion.button 
-            whileTap={{ scale: 0.95 }} 
-            onClick={() => handleStart(true)} 
-            className="btn-secondary flex-none px-4 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-white/20 py-4"
-          >
-            <FlaskConical className="w-4 h-4" /> Демо
-          </motion.button>
+          {isAdmin ? (
+            <>
+              <motion.button 
+                whileTap={{ scale: 0.95 }} 
+                onClick={() => handleStart(false)} 
+                className="btn-primary flex-1 flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-[#b026ff]/50 py-4"
+              >
+                <Play className="w-4 h-4 fill-current" /> Начать игру
+              </motion.button>
+              <motion.button 
+                whileTap={{ scale: 0.95 }} 
+                onClick={() => handleStart(true)} 
+                className="btn-secondary flex-none px-4 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-white/20 py-4"
+              >
+                <FlaskConical className="w-4 h-4" /> Демо
+              </motion.button>
+            </>
+          ) : (
+            <div className="text-[#b026ff]/60 text-xs text-center w-full py-4 border border-[#b026ff]/20 rounded-xl bg-[#4b0082]/10">
+              Ожидаем запуск игры администратором...
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>

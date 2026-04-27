@@ -163,12 +163,6 @@ export default function App() {
       <Background />
       
       <div className="game-container flex-1 bg-transparent w-full max-w-md mx-auto relative flex flex-col min-h-0">
-        {tgUser && (
-          <div className="absolute top-4 left-4 z-50 text-[10px] text-[#b026ff]/80 font-mono bg-black/60 px-2 py-1 rounded-md border border-[#b026ff]/30">
-            Игрок: {tgUser.first_name}
-          </div>
-        )}
-
         <AnimatePresence mode="wait">
           {gameState.phase === 'SETUP' && (
             <GameSetup key="setup" onStart={handleStartGame} tgUser={tgUser} />
