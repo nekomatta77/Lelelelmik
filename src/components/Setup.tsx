@@ -15,10 +15,11 @@ interface SetupProps {
 
 export default function GameSetup({ onStart, tgUser }: SetupProps) {
   const [names, setNames] = useState<string[]>([]);
-  const [admins, setAdmins] = useState<string[]>([]); // Сохраняем список админов
+  const [admins, setAdmins] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = 'http://178.217.99.4:8080';
+  // УБРАЛИ IP-АДРЕС! Теперь используем пустое значение, чтобы запросы шли через прокси Vercel
+  const API_URL = ''; 
 
   const DRAGON_IMG = {
     scale: 1.1,
@@ -28,7 +29,6 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
 
   useEffect(() => {
     if (tgUser) {
-      // Используем @никнейм, если его нет — обычное имя
       const displayName = tgUser.username ? `@${tgUser.username}` : tgUser.first_name;
       
       fetch(`${API_URL}/api/join`, {
@@ -50,7 +50,6 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
         const res = await fetch(`${API_URL}/api/lobby`);
         const data = await res.json();
         if (data.players) {
-          // Вытаскиваем только имена из массива объектов {id, name}
           setNames(data.players.map((p: any) => p.name));
         }
         if (data.admins) {
@@ -81,7 +80,6 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
       return;
     }
 
-    // Сообщаем серверу, что игра началась (чтобы бот написал в чат Телеграма)
     if (!isDemo && tgUser?.username) {
       try {
         await fetch(`${API_URL}/api/start`, {
@@ -118,7 +116,6 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     onStart(players);
   };
 
-  // Проверяем, является ли текущий пользователь администратором
   const isAdmin = tgUser?.username && admins.map(a => a.toLowerCase()).includes(tgUser.username.toLowerCase());
 
   return (
@@ -200,7 +197,6 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           </AnimatePresence>
         </div>
 
-        {/* Условный рендеринг кнопок только для администраторов */}
         <div className="flex gap-2 mt-4 shrink-0 pb-1">
           {isAdmin ? (
             <>
