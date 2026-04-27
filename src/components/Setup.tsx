@@ -18,12 +18,10 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
   const [admins, setAdmins] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Определяем URL API: на компьютере (DEV) используем IP сервера, на Vercel — прокси
   const API_URL = import.meta.env.DEV ? 'http://178.217.99.4:8080' : '';
 
   const DRAGON_IMG = { scale: 1.1, x: 0, y: 0 };
 
-  // 1. Автоматическое добавление игрока в лобби при входе
   useEffect(() => {
     if (tgUser) {
       const displayName = tgUser.username ? `@${tgUser.username}` : tgUser.first_name;
@@ -41,7 +39,6 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
     }
   }, [tgUser, API_URL]);
 
-  // 2. Постоянное обновление списка игроков (раз в 2 секунды)
   useEffect(() => {
     const fetchLobby = async () => {
       try {
@@ -52,14 +49,13 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
         if (data.players) setNames(data.players);
         if (data.admins) setAdmins(data.admins);
 
-        // Если сервер перевел фазу в REVEAL (игра началась)
         if (data.phase === 'REVEAL' && data.players.length > 0) {
           const formattedPlayers: Player[] = data.players.map((p: any) => ({
             id: p.id,
             name: p.name,
             role: p.role || 'Civilian',
             isAlive: true,
-            isRevealed: false
+            ready: false // Исправлено: добавлено свойство ready
           }));
           onStart(formattedPlayers);
         }
@@ -111,7 +107,6 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
       }
     }
 
-    // Если это демо-режим, раздаем роли локально
     if (isDemo) {
         const mafiaCount = Math.max(1, Math.floor(currentNames.length / 4));
         let roles: Role[] = [];
@@ -126,7 +121,7 @@ export default function GameSetup({ onStart, tgUser }: SetupProps) {
           name: p.name,
           role: roles[i],
           isAlive: true,
-          isRevealed: false,
+          ready: false // Исправлено: добавлено свойство ready
         }));
         onStart(players);
     }

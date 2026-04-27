@@ -10,11 +10,13 @@ import { Player } from '../types';
 
 interface RoleRevealProps {
   players: Player[];
+  myId?: string; // Добавили myId, чтобы исправить ошибку
   onComplete: () => void;
 }
 
-export default function RoleReveal({ players, onComplete }: RoleRevealProps) {
-  const me = players[0];
+export default function RoleReveal({ players, myId, onComplete }: RoleRevealProps) {
+  // Теперь ищем именно нашего игрока по ID
+  const me = players.find(p => p.id === myId) || players[0];
 
   const roleInfo = {
     Mafia: {
@@ -43,7 +45,8 @@ export default function RoleReveal({ players, onComplete }: RoleRevealProps) {
     }
   };
 
-  const info = roleInfo[me.role as keyof typeof roleInfo];
+  // Если вдруг роль неизвестна, ставим Гражданина по умолчанию
+  const info = roleInfo[(me?.role as keyof typeof roleInfo) || 'Civilian'];
 
   return (
     <motion.div 

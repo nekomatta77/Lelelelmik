@@ -3,87 +3,136 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Sun, MessageSquare, Vote } from 'lucide-react';
-import { Player } from '../types';
+import { Sun, MessageSquare, Vote, Send } from 'lucide-react';
+import { Player, ChatMessage, GamePhase } from '../types';
 
 interface DayPhaseProps {
+  phase: GamePhase;
   players: Player[];
+  myId: string;
   deathId: string | null;
-  isVoting: boolean;
-  onStartVoting: () => void;
+  messages: ChatMessage[];
+  onNextPhase: () => void;
+  onReadyToVote: () => void;
   onVote: (targetId: string | null) => void;
+  onSendMessage: (text: string) => void;
 }
 
-export default function DayPhase({ players, deathId, isVoting, onStartVoting, onVote }: DayPhaseProps) {
+export default function DayPhase({ phase, players, myId, deathId, messages, onNextPhase, onReadyToVote, onVote, onSendMessage }: DayPhaseProps) {
   const victim = players.find(p => p.id === deathId);
+  const me = players.find(p => p.id === myId);
+  const [inputText, setInputText] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Скролл вниз при новых сообщениях
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = () => {
+    if (inputText.trim()) {
+      onSendMessage(inputText);
+      setInputText("");
+    }
+  };
 
   return (
-    <motion.div 
-      className="flex flex-col h-full p-6" 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }}
-    >
-      <div className="text-center mb-6 shrink-0">
-        {isVoting ? (
-          <Vote className="w-12 h-12 mx-auto mb-3 text-rose-mafia" />
-        ) : (
-          <Sun className="w-12 h-12 mx-auto mb-3 text-yellow-400" />
-        )}
-        <h2 className="text-2xl font-bold uppercase">{isVoting ? 'Голосование' : 'Наступило утро'}</h2>
+    <motion.div className="flex flex-col h-full p-4 pb-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <div className="text-center mb-4 shrink-0 mt-4">
+        {phase === 'DAY_VOTING' ? <Vote className="w-10 h-10 mx-auto mb-2 text-rose-mafia" /> : <Sun className="w-10 h-10 mx-auto mb-2 text-yellow-400" />}
+        <h2 className="text-xl font-bold uppercase">
+          {phase === 'DAY_STORY' ? 'Наступило утро' : phase === 'DAY_CHAT' ? 'Дневное обсуждение' : 'Голосование'}
+        </h2>
       </div>
 
-      {!isVoting && (
-        <div className="glass-card p-6 mb-6 text-center border-white/10 shrink-0">
-          {victim ? (
-            <>
-              <p className="text-white/40 text-[10px] uppercase mb-2">Этой ночью город потерял:</p>
-              <p className="text-xl font-black text-rose-mafia">{victim.name}</p>
-            </>
-          ) : (
-            <p className="text-sm font-bold text-green-400 uppercase text-center">Ночь прошла спокойно. Погибших нет.</p>
-          )}
+      {/* --- ЭКРАН ИСТОРИИ (УТРО) --- */}
+      {phase === 'DAY_STORY' && (
+        <div className="flex flex-col items-center justify-center flex-1">
+          <div className="glass-card p-8 text-center border-white/10 w-full mb-6">
+            {victim ? (
+              <>
+                <p className="text-white/60 text-xs uppercase mb-2">Этой ночью город потерял:</p>
+                <p className="text-2xl font-black text-rose-mafia mb-4">{victim.name}</p>
+                <p className="text-[10px] text-white/40">Его роль навсегда останется тайной.</p>
+              </>
+            ) : (
+              <p className="text-lg font-bold text-green-400 uppercase">Ночь прошла спокойно.<br/>Погибших нет.</p>
+            )}
+          </div>
+          <button onClick={onNextPhase} className="btn-primary w-full py-4 uppercase tracking-widest text-sm">
+            Перейти к обсуждению
+          </button>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 mb-6">
-        {isVoting ? (
-          <div className="space-y-3">
-            <p className="text-center text-[10px] text-white/30 uppercase mb-4">Выберите, кого изгнать из города:</p>
-            {players.filter(p => p.isAlive).map(p => (
-              <button 
-                key={p.id} 
-                onClick={() => onVote(p.id)} 
-                className="glass-card w-full p-4 text-left border-white/5 hover:bg-white/5 active:scale-[0.98] transition-all"
-              >
-                <span className="text-sm font-bold">{p.name}</span>
-              </button>
-            ))}
-            <button 
-              onClick={() => onVote(null)} 
-              className="w-full p-4 text-[10px] uppercase text-white/20 mt-2"
-            >
-              Пропустить голосование
+      {/* --- ЭКРАН ЧАТА И СИНХРОНИЗАЦИИ --- */}
+      {phase === 'DAY_CHAT' && (
+        <div className="flex flex-col flex-1 min-h-0 bg-black/20 rounded-2xl border border-white/10 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            {messages.length === 0 ? (
+              <p className="text-center text-white/30 text-xs italic mt-10">Чат синхронизирован с Telegram.<br/>Напишите что-нибудь!</p>
+            ) : (
+              messages.map((m, i) => (
+                <div key={i} className={`flex flex-col ${m.sender === me?.name ? 'items-end' : 'items-start'}`}>
+                  <span className="text-[9px] text-white/40 mb-1 px-1">{m.sender}</span>
+                  <div className={`px-4 py-2 rounded-2xl text-sm ${m.sender === me?.name ? 'bg-rose-mafia/80 text-white rounded-br-sm' : 'bg-[#4b0082]/60 text-white rounded-bl-sm'}`}>
+                    {m.text}
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          
+          {/* Инпут чата */}
+          <div className="p-3 bg-white/5 border-t border-white/10 flex gap-2 shrink-0">
+            <input 
+              type="text" 
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Введите сообщение..."
+              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-rose-mafia/50 transition-colors"
+            />
+            <button onClick={handleSend} className="bg-rose-mafia text-white p-2 rounded-xl active:scale-95 transition-transform flex items-center justify-center">
+              <Send className="w-5 h-5 ml-1" />
             </button>
           </div>
-        ) : (
-          <div className="text-center space-y-6 flex flex-col items-center justify-center h-full pb-10">
-            <MessageSquare className="w-10 h-10 text-purple-500/50" />
-            <p className="text-sm text-purple-100/60 leading-relaxed italic px-4">
-              Обсудите события ночи. Кто ведет себя подозрительно? Настало время вычислить мафию.
-            </p>
+          
+          <div className="p-2 shrink-0">
+            <button onClick={onReadyToVote} disabled={me?.ready || !me?.isAlive} className={`w-full py-3 rounded-xl uppercase tracking-widest text-[10px] font-bold transition-all ${me?.ready ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-white/10 text-white/60 hover:bg-white/20 active:scale-95'}`}>
+              {me?.ready ? 'Ожидание других игроков...' : me?.isAlive ? 'Готов голосовать' : 'Вы мертвы (наблюдение)'}
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {!isVoting && (
-        <button 
-          onClick={onStartVoting} 
-          className="btn-primary w-full py-4 text-sm uppercase tracking-widest mt-auto shrink-0"
-        >
-          Перейти к голосованию
-        </button>
+      {/* --- ЭКРАН ГОЛОСОВАНИЯ --- */}
+      {phase === 'DAY_VOTING' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+           <p className="text-center text-xs text-white/40 uppercase mb-4 shrink-0">Кто мафия? Голосуйте.</p>
+           <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+             {players.filter(p => p.isAlive).map(p => (
+               <button 
+                 key={p.id} 
+                 onClick={() => onVote(p.id)} 
+                 disabled={!me?.isAlive || me?.ready} // me?.ready используем как флаг "уже проголосовал"
+                 className={`w-full p-4 text-left rounded-xl border transition-all ${p.id === myId ? 'hidden' : ''} ${me?.ready ? 'opacity-50 border-white/5 bg-white/5 cursor-not-allowed' : 'border-white/10 bg-black/20 hover:bg-rose-mafia/20 active:scale-[0.98]'}`}
+               >
+                 <span className="text-sm font-bold">{p.name}</span>
+               </button>
+             ))}
+             <button 
+               onClick={() => onVote(null)} 
+               disabled={!me?.isAlive || me?.ready}
+               className="w-full p-3 text-[10px] uppercase text-white/30 border border-white/5 rounded-xl mt-4"
+             >
+               Пропустить голосование
+             </button>
+           </div>
+        </div>
       )}
     </motion.div>
   );

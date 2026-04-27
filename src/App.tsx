@@ -3,181 +3,90 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Trophy, RotateCcw } from 'lucide-react';
-import { Player, GamePhase, GameState } from './types';
+import { Player, GameState, GamePhase } from './types';
 import Background from './components/Background';
 import GameSetup from './components/Setup';
 import RoleReveal from './components/RoleReveal';
 import NightPhase from './components/NightPhase';
 import DayPhase from './components/DayPhase';
 
+const API_URL = import.meta.env.DEV ? 'http://178.217.99.4:8080' : '';
+
 export default function App() {
   const [tgUser, setTgUser] = useState<any>(null);
-
   const [gameState, setGameState] = useState<GameState>({
     players: [],
     phase: 'SETUP',
     round: 1,
-    lastKillAttempt: null,
-    lastHealTarget: null,
-    lastCheckedPlayer: null,
     deathThisRound: null,
     winner: null,
-    history: [],
+    messages: [],
+    detectiveResult: null
   });
 
   useEffect(() => {
-    // 1. Пытаемся инициализировать реальный Telegram WebApp
     if (window.Telegram && window.Telegram.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
-      
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         setTgUser(tg.initDataUnsafe.user);
-        return; // Если данные получены, выходим из useEffect
+        return;
       }
     }
-
-    // 2. РЕЖИМ ТЕСТИРОВАНИЯ (Fallback для ПК)
-    // Если мы не в Telegram или данные не пришли, создаем тестового админа
-    console.warn("Telegram WebApp не обнаружен. Включен режим тестирования для пользователя @homienekomatta");
-    setTgUser({
-      id: 111111,
-      first_name: "Админ (ПК)",
-      username: "homienekomatta" // Твой никнейм для проверки прав администратора
-    });
+    setTgUser({ id: 111111, first_name: "Админ (ПК)", username: "homienekomatta" });
   }, []);
 
-  const checkVictory = (currentPlayers: Player[]) => {
-    const aliveMafia = currentPlayers.filter(p => p.isAlive && p.role === 'Mafia').length;
-    const aliveCivilians = currentPlayers.filter(p => p.isAlive && p.role !== 'Mafia').length;
-
-    if (aliveMafia === 0) return 'Civilians';
-    if (aliveMafia >= aliveCivilians) return 'Mafia';
-    return null;
-  };
-
-  const handleStartGame = (players: Player[]) => {
-    setGameState(prev => ({ ...prev, players, phase: 'REVEAL' }));
-  };
-
-  const handleRoleRevealComplete = () => {
-    setGameState(prev => ({ ...prev, phase: 'NIGHT_START' }));
-  };
-
-  const handleNightAction = (targetId: string) => {
-    setGameState(prev => {
-      let nextPhase: GamePhase = prev.phase;
-      let lastKillAttempt = prev.lastKillAttempt;
-      let lastHealTarget = prev.lastHealTarget;
-      let lastCheckedPlayer = prev.lastCheckedPlayer;
-
-      const hasDetective = prev.players.some(p => p.isAlive && p.role === 'Detective');
-      const hasDoctor = prev.players.some(p => p.isAlive && p.role === 'Doctor');
-
-      if (prev.phase === 'NIGHT_START') {
-        nextPhase = 'NIGHT_MAFIA';
-      } else if (prev.phase === 'NIGHT_MAFIA') {
-        lastKillAttempt = targetId;
-        nextPhase = hasDetective ? 'NIGHT_DETECTIVE' : (hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY');
-      } else if (prev.phase === 'NIGHT_DETECTIVE') {
-        if (!targetId && lastCheckedPlayer) {
-          lastCheckedPlayer = null;
-          nextPhase = hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY';
-        } else if (targetId) {
-          const target = prev.players.find(p => p.id === targetId);
-          lastCheckedPlayer = target ? { id: target.id, role: target.role } : null;
-        } else {
-          nextPhase = hasDoctor ? 'NIGHT_DOCTOR' : 'DAY_STORY';
-        }
-      } else if (prev.phase === 'NIGHT_DOCTOR') {
-        lastHealTarget = targetId;
-        nextPhase = 'DAY_STORY';
+  // Главный цикл игры: берем состояние с сервера каждые 2 секунды
+  useEffect(() => {
+    if (!tgUser) return;
+    
+    const fetchState = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/state?user_id=${tgUser.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setGameState(data);
+      } catch (err) {
+        console.error("Ошибка синхронизации с сервером:", err);
       }
+    };
 
-      let deathThisRound = null;
-      let finalPlayers = prev.players;
-      let winner = prev.winner;
+    const interval = setInterval(fetchState, 2000);
+    return () => clearInterval(interval);
+  }, [tgUser]);
 
-      if (nextPhase === 'DAY_STORY') {
-        if (lastKillAttempt !== lastHealTarget && lastKillAttempt) {
-          deathThisRound = lastKillAttempt;
-          finalPlayers = prev.players.map(p => 
-            p.id === lastKillAttempt ? { ...p, isAlive: false } : p
-          );
-        }
-        winner = checkVictory(finalPlayers);
-        if (winner) nextPhase = 'GAME_OVER';
-      }
-
-      return {
-        ...prev,
-        phase: nextPhase,
-        lastKillAttempt,
-        lastHealTarget,
-        lastCheckedPlayer,
-        deathThisRound,
-        players: finalPlayers,
-        winner,
-      };
+  // Вызовы к API вместо изменения локального стейта
+  const apiCall = async (endpoint: string, body: any) => {
+    await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: tgUser.id, ...body })
     });
   };
 
-  const handleVote = (targetId: string | null) => {
-    setGameState(prev => {
-      let finalPlayers = prev.players;
-      let winner = prev.winner;
-      let nextPhase: GamePhase = 'NIGHT_START';
+  const handleStartGame = () => { /* Теперь это делает Setup.tsx через API */ };
 
-      if (targetId) {
-        finalPlayers = prev.players.map(p => 
-          p.id === targetId ? { ...p, isAlive: false } : p
-        );
-      }
-
-      winner = checkVictory(finalPlayers);
-      if (winner) nextPhase = 'GAME_OVER';
-
-      return {
-        ...prev,
-        players: finalPlayers,
-        phase: nextPhase,
-        winner,
-        round: prev.round + 1,
-        lastKillAttempt: null,
-        lastHealTarget: null,
-        lastCheckedPlayer: null,
-        deathThisRound: null,
-      };
-    });
-  };
-
-  const resetGame = () => {
-    setGameState({
-      players: [],
-      phase: 'SETUP',
-      round: 1,
-      lastKillAttempt: null,
-      lastHealTarget: null,
-      lastCheckedPlayer: null,
-      deathThisRound: null,
-      winner: null,
-      history: [],
-    });
-  };
+  const handleReady = () => apiCall('/api/ready', {});
+  const handleNextPhase = () => apiCall('/api/next_phase', {});
+  
+  const handleNightAction = (targetId: string | null) => apiCall('/api/action', { target_id: targetId });
+  const handleVote = (targetId: string | null) => apiCall('/api/vote', { target_id: targetId });
+  
+  const handleSendMessage = (text: string) => apiCall('/api/chat', { text });
 
   return (
     <div className="relative h-[100dvh] w-full bg-[#0a0014] overflow-hidden flex flex-col">
       <Background />
-      
       <div className="game-container flex-1 bg-transparent w-full max-w-md mx-auto relative flex flex-col min-h-0">
-        {/* ТАБЛИЧКА "ИГРОК" УДАЛЕНА  */}
-
         <AnimatePresence mode="wait">
+          
           {gameState.phase === 'SETUP' && (
+             // Setup мы не меняли, он сам пуллит /api/lobby, но нам нужно передать ему API_URL или оставить как есть. 
+             // В твоем Setup он уже написан круто, так что просто рендерим.
             <GameSetup key="setup" onStart={handleStartGame} tgUser={tgUser} />
           )}
 
@@ -185,64 +94,50 @@ export default function App() {
             <RoleReveal 
               key="reveal" 
               players={gameState.players} 
-              onComplete={handleRoleRevealComplete} 
+              myId={tgUser?.id?.toString()}
+              onComplete={handleReady} 
             />
           )}
 
-          {gameState.phase.startsWith('NIGHT') && (
+          {gameState.phase === 'NIGHT' && (
             <NightPhase 
               key="night"
               players={gameState.players}
-              phase={gameState.phase}
+              myId={tgUser?.id?.toString()}
               onAction={handleNightAction}
-              checkedPlayer={gameState.lastCheckedPlayer}
+              checkedPlayerResult={gameState.detectiveResult}
             />
           )}
 
-          {(gameState.phase === 'DAY_STORY' || gameState.phase === 'DAY_VOTING') && (
+          {(gameState.phase === 'DAY_STORY' || gameState.phase === 'DAY_CHAT' || gameState.phase === 'DAY_VOTING') && (
             <DayPhase 
               key="day"
+              phase={gameState.phase}
               players={gameState.players}
+              myId={tgUser?.id?.toString()}
               deathId={gameState.deathThisRound}
-              isVoting={gameState.phase === 'DAY_VOTING'}
-              onStartVoting={() => setGameState(p => ({ ...p, phase: 'DAY_VOTING' }))}
+              messages={gameState.messages}
+              onNextPhase={handleNextPhase}
+              onReadyToVote={handleReady}
               onVote={handleVote}
+              onSendMessage={handleSendMessage}
             />
           )}
 
           {gameState.phase === 'GAME_OVER' && (
-            <motion.div 
-              key="game-over"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center justify-center p-8 text-center h-full w-full z-10"
-            >
+            <motion.div key="game-over" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center p-8 text-center h-full w-full z-10">
               <div className="glass-card p-8 w-full flex flex-col items-center border-rose-mafia/40">
                 <Trophy className="w-16 h-16 text-rose-mafia mb-6 animate-bounce" />
                 <h2 className="text-3xl font-black mb-1 uppercase tracking-tighter">ИГРА ОКОНЧЕНА</h2>
                 <div className={`text-2xl font-black mb-10 tracking-widest ${gameState.winner === 'Mafia' ? 'text-rose-mafia' : 'text-blue-400'}`}>
                   ПОБЕДА {gameState.winner === 'Mafia' ? 'МАФИИ' : 'ГОРОЖАН'}
                 </div>
-                
-                <div className="w-full space-y-2 mb-10 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                  <div className="text-white/40 uppercase tracking-widest text-[10px] mb-2 text-center">Итоги игры</div>
-                  {gameState.players.map(p => (
-                    <div key={p.id} className="flex items-center justify-between p-3 glass-card rounded-xl border-white/10 mb-2">
-                      <span className={`text-xs font-semibold ${p.isAlive ? 'text-white' : 'text-white/40'}`}>{p.name}</span>
-                      <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${p.role === 'Mafia' ? 'bg-rose-mafia/20 text-rose-mafia' : p.role === 'Detective' ? 'bg-blue-400/20 text-blue-400' : p.role === 'Doctor' ? 'bg-green-400/20 text-green-400' : 'bg-purple-300/20 text-purple-300'}`}>
-                        {p.role === 'Mafia' ? 'МАФИЯ' : p.role === 'Detective' ? 'ДЕТЕКТИВ' : p.role === 'Doctor' ? 'ВРАЧ' : 'ГРАЖДАНИН'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <button onClick={resetGame} className="btn-primary w-full flex items-center justify-center gap-3 py-4">
-                  <RotateCcw className="w-5 h-5" />
-                  В ЛОББИ
-                </button>
+                {/* Ожидание перезапуска админом */}
+                <p className="text-white/50 text-sm">Ожидайте, пока Высший Дракон начнет новую игру...</p>
               </div>
             </motion.div>
           )}
+
         </AnimatePresence>
       </div>
     </div>
