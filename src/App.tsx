@@ -165,7 +165,7 @@ export default function App() {
       <div className="game-container flex-1 bg-transparent w-full max-w-md mx-auto relative flex flex-col min-h-0">
         {tgUser && (
           <div className="absolute top-4 left-4 z-50 text-[10px] text-[#b026ff]/80 font-mono bg-black/60 px-2 py-1 rounded-md border border-[#b026ff]/30">
-            Дракон: {tgUser.first_name}
+            Игрок: {tgUser.first_name}
           </div>
         )}
 
@@ -214,16 +214,16 @@ export default function App() {
                 <Trophy className="w-16 h-16 text-rose-mafia mb-6 animate-bounce" />
                 <h2 className="text-3xl font-black mb-1 uppercase tracking-tighter">ИГРА ОКОНЧЕНА</h2>
                 <div className={`text-2xl font-black mb-10 tracking-widest ${gameState.winner === 'Mafia' ? 'text-rose-mafia' : 'text-blue-400'}`}>
-                  ПОБЕДА {gameState.winner === 'Mafia' ? 'ОХОТНИКОВ' : 'СТАИ ДРАКОНОВ'}
+                  ПОБЕДА {gameState.winner === 'Mafia' ? 'МАФИИ' : 'ГОРОЖАН'}
                 </div>
                 
                 <div className="w-full space-y-2 mb-10 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                  <div className="text-white/40 uppercase tracking-widest text-[10px] mb-2 text-center">Роли игроков</div>
+                  <div className="text-white/40 uppercase tracking-widest text-[10px] mb-2 text-center">Итоги игры</div>
                   {gameState.players.map(p => (
                     <div key={p.id} className="flex items-center justify-between p-3 glass-card rounded-xl border-white/10 mb-2">
                       <span className={`text-xs font-semibold ${p.isAlive ? 'text-white' : 'text-white/40'}`}>{p.name}</span>
-                      <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${p.role === 'Mafia' ? 'bg-rose-mafia/20 text-rose-mafia' : 'bg-blue-400/20 text-blue-400'}`}>
-                        {p.role === 'Mafia' ? 'ОХОТНИК' : p.role === 'Detective' ? 'АЛЬФА' : p.role === 'Doctor' ? 'ЦЕЛИТЕЛЬ' : 'ДРАКОН'}
+                      <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${p.role === 'Mafia' ? 'bg-rose-mafia/20 text-rose-mafia' : p.role === 'Detective' ? 'bg-blue-400/20 text-blue-400' : p.role === 'Doctor' ? 'bg-green-400/20 text-green-400' : 'bg-purple-300/20 text-purple-300'}`}>
+                        {p.role === 'Mafia' ? 'МАФИЯ' : p.role === 'Detective' ? 'ДЕТЕКТИВ' : p.role === 'Doctor' ? 'ВРАЧ' : 'ГРАЖДАНИН'}
                       </span>
                     </div>
                   ))}
@@ -231,7 +231,7 @@ export default function App() {
 
                 <button onClick={resetGame} className="btn-primary w-full flex items-center justify-center gap-3 py-4">
                   <RotateCcw className="w-5 h-5" />
-                  В ЛОГОВО
+                  В ЛОББИ
                 </button>
               </div>
             </motion.div>

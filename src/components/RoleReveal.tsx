@@ -14,31 +14,30 @@ interface RoleRevealProps {
 }
 
 export default function RoleReveal({ players, onComplete }: RoleRevealProps) {
-  // В реальной игре мы бы искали роль текущего игрока, для тестов пока берем первого
   const me = players[0];
 
   const roleInfo = {
     Mafia: {
-      title: 'ОХОТНИК',
-      desc: 'Устраняйте драконов ночью, оставайтесь незамеченным днем.',
+      title: 'МАФИЯ',
+      desc: 'Устраняйте граждан ночью и оставайтесь вне подозрений днем.',
       icon: Target,
       color: 'text-rose-mafia'
     },
     Detective: {
-      title: 'АЛЬФА',
+      title: 'ДЕТЕКТИВ',
       desc: 'Вы можете проверять роли других игроков каждую ночь.',
       icon: Eye,
       color: 'text-blue-400'
     },
     Doctor: {
-      title: 'ЦЕЛИТЕЛЬ',
-      desc: 'Выбирайте игрока, которого хотите защитить этой ночью.',
+      title: 'ВРАЧ',
+      desc: 'Выбирайте игрока, которого хотите спасти этой ночью.',
       icon: Shield,
       color: 'text-green-400'
     },
     Civilian: {
-      title: 'ДРАКОН',
-      desc: 'Ваша цель — найти всех охотников и изгнать их из стаи.',
+      title: 'ГРАЖДАНИН',
+      desc: 'Ваша цель — вычислить мафию и изгнать её из города на голосовании.',
       icon: User,
       color: 'text-purple-300'
     }
@@ -48,8 +47,8 @@ export default function RoleReveal({ players, onComplete }: RoleRevealProps) {
 
   return (
     <motion.div 
-      className="flex flex-col items-center justify-center h-full p-8 text-center"
-      initial={{ opacity: 0 }}
+      className="flex flex-col items-center justify-center h-full p-8 text-center" 
+      initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }}
     >
       <div className="glass-card p-10 w-full border-rose-mafia/30">
@@ -64,9 +63,9 @@ export default function RoleReveal({ players, onComplete }: RoleRevealProps) {
         <p className="text-purple-100/70 text-sm leading-relaxed mb-10">
           {info.desc}
         </p>
-
+        
         <button 
-          onClick={onComplete}
+          onClick={onComplete} 
           className="btn-primary w-full py-4 text-sm uppercase tracking-widest"
         >
           Я готов
