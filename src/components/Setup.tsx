@@ -3,51 +3,59 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Trash2, Play } from 'lucide-react';
+import { Users, Play } from 'lucide-react';
 import { Player, Role } from '../types';
 
 interface SetupProps {
   onStart: (players: Player[]) => void;
+  tgUser: any;
 }
 
-export default function GameSetup({ onStart }: SetupProps) {
-  const [names, setNames] = useState<string[]>(() => {
-    // Пытаемся получить игроков из URL-ссылки, которую прислал бот
-    const params = new URLSearchParams(window.location.search);
-    const playersParam = params.get('players');
-    if (playersParam) {
-      return playersParam.split(',');
-    }
-    // Если зашли просто так (без бота), показываем дефолтных
-    return ['Алексей', 'Мария', 'Иван', 'Елена', 'Дмитрий', 'Анна']; 
-});
-
-  const [newName, setNewName] = useState('');
-
+export default function GameSetup({ onStart, tgUser }: SetupProps) {
+  const [names, setNames] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const addPlayer = () => {
-    if (newName.trim()) {
-      setNames([...names, newName.trim()]);
-      setNewName('');
-      setError(null);
-    }
-  };
+  // ТВОЙ НАСТОЯЩИЙ IP АДРЕС СЕРВЕРА
+  const API_URL = 'http://178.217.99.4:8080';
 
-  const removePlayer = (index: number) => {
-    setNames(names.filter((_, i) => i !== index));
-  };
+  // Автоматическое добавление игрока в лобби при заходе
+  useEffect(() => {
+    if (tgUser && tgUser.first_name) {
+      fetch(`${API_URL}/api/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_name: tgUser.first_name, action: "join" })
+      }).catch(err => console.error("Ошибка при подключении к лобби", err));
+    }
+  }, [tgUser]);
+
+  // Запрос списка игроков с сервера каждые 2 секунды
+  useEffect(() => {
+    const fetchLobby = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/lobby`);
+        const data = await res.json();
+        if (data.players) {
+          setNames(data.players);
+        }
+      } catch (err) {
+        console.error("Не удалось получить список лобби", err);
+      }
+    };
+
+    fetchLobby(); // Вызываем сразу
+    const interval = setInterval(fetchLobby, 2000); // И затем каждые 2 сек
+    return () => clearInterval(interval);
+  }, []);
 
   const handleStart = () => {
     if (names.length < 4) {
-      setError('Нужно минимум 4 игрока для начала игры');
+      setError('Нужно минимум 4 дракона для начала игры');
       return;
     }
 
-    // Shuffle roles
-    // 1 Mafia for 4-6 players, 2 for 7-9, etc.
     const mafiaCount = Math.max(1, Math.floor(names.length / 4));
     const detectiveCount = 1;
     const doctorCount = 1;
@@ -58,7 +66,6 @@ export default function GameSetup({ onStart }: SetupProps) {
     for (let i = 0; i < doctorCount; i++) roles.push('Doctor');
     while (roles.length < names.length) roles.push('Civilian');
 
-    // Shuffle roles array
     roles = roles.sort(() => Math.random() - 0.5);
 
     const players: Player[] = names.map((name, i) => ({
@@ -77,7 +84,7 @@ export default function GameSetup({ onStart }: SetupProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="flex flex-col items-center justify-center h-full p-8 w-full"
+      className="flex flex-col items-center justify-center h-full p-8 w-full z-10"
     >
       <div className="text-center mb-8">
         <span className="text-[10px] uppercase tracking-[0.3em] text-rose-mafia font-bold mb-2 block">Shadow Syndicate</span>
@@ -87,63 +94,45 @@ export default function GameSetup({ onStart }: SetupProps) {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
-          MAFIA <span className="role-serif text-rose-mafia">Lounge</span>
+          DRAGONCHAT <span className="role-serif text-rose-mafia">Mafia</span>
         </motion.h1>
       </div>
 
       <div className="glass-card w-full p-5 flex flex-col gap-4 max-h-[50vh]">
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-rose-mafia" />
-            <span className="font-semibold text-sm">ИГРОКИ ({names.length})</span>
+            <span className="font-semibold text-sm">ЛОГОВО ДРАКОНОВ ({names.length})</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span className="text-[10px] text-white/50 uppercase tracking-widest">В сети</span>
           </div>
         </div>
 
-        <div className="overflow-y-auto pr-1 space-y-2 custom-scrollbar">
-          <AnimatePresence mode="popLayout">
-            {names.map((name, i) => (
-              <motion.div
-                key={i + name}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold border border-white/5">
+        <div className="overflow-y-auto pr-1 space-y-2 custom-scrollbar min-h-[150px]">
+          {names.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-white/30 text-xs text-center italic">
+              Ждем первых драконов...
+            </div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {names.map((name, i) => (
+                <motion.div
+                  key={i + name}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="flex items-center p-3 bg-white/5 rounded-2xl border border-white/10 shadow-sm"
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#4b0082]/50 flex items-center justify-center text-[10px] font-bold border border-[#b026ff]/30 mr-3">
                     {String(i + 1).padStart(2, '0')}
                   </div>
                   <span className="font-medium text-xs tracking-wide">{name}</span>
-                </div>
-                <button 
-                  onClick={() => removePlayer(i)}
-                  className="p-2 text-white/20 hover:text-rose-mafia transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        <div className="mt-2 flex gap-2">
-          <input 
-            type="text" 
-            placeholder="Имя..."
-            value={newName}
-            onChange={(e) => {
-              setNewName(e.target.value);
-              setError(null);
-            }}
-            onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
-            className="flex-1 bg-white/3 border border-white/8 rounded-xl px-4 py-3 text-xs outline-none focus:border-rose-mafia/30 transition-all font-medium"
-          />
-          <button 
-            onClick={addPlayer}
-            className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all"
-          >
-            <Plus className="w-5 h-5 text-rose-mafia" />
-          </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
         </div>
         
         <AnimatePresence>
@@ -166,7 +155,7 @@ export default function GameSetup({ onStart }: SetupProps) {
         className="btn-primary mt-8 w-full flex items-center justify-center gap-2 text-xs uppercase tracking-widest"
       >
         <Play className="w-4 h-4 fill-current" />
-        Начать раздачу
+        Начать игру
       </motion.button>
     </motion.div>
   );

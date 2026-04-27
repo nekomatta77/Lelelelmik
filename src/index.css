@@ -2,10 +2,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-noir: #050505;
-  --color-rose-mafia: #E11D48;
-  --color-rose-mafia-dark: #881337;
-  --color-slate-mafia: #111111;
+  /* Заменяем красные цвета на фиолетовые */
+  --color-noir: #0a0014; /* Очень глубокий темный фиолетовый для фона */
+  --color-rose-mafia: #b026ff; /* Неоновый фиолетовый для акцентов */
+  --color-rose-mafia-dark: #4b0082; /* Темно-фиолетовый */
+  --color-slate-mafia: #110022;
   
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", serif;
@@ -13,16 +14,16 @@
 
 @layer base {
   body {
-    @apply bg-noir text-slate-200 overflow-hidden antialiased;
+    @apply bg-noir text-purple-100 overflow-hidden antialiased;
     font-family: var(--font-sans);
   }
 
   .glass-card {
-    @apply bg-white/3 backdrop-blur-md border border-white/8 rounded-3xl shadow-2xl;
+    @apply bg-[#2e004f]/40 backdrop-blur-md border border-[#b026ff]/30 rounded-3xl shadow-2xl;
   }
 
   .mafia-gradient {
-    @apply bg-linear-to-br from-[#E11D48] to-[#881337];
+    @apply bg-linear-to-br from-[#b026ff] to-[#4b0082];
   }
 
   .role-serif {
@@ -31,11 +32,11 @@
   }
 
   .btn-primary {
-    @apply px-8 py-4 bg-linear-to-br from-[#E11D48] to-[#881337] text-white font-bold rounded-2xl transition-all active:scale-95 shadow-lg shadow-rose-900/20;
+    @apply px-8 py-4 bg-linear-to-br from-[#b026ff] to-[#4b0082] text-white font-bold rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-900/40;
   }
 
   .btn-secondary {
-    @apply px-8 py-4 bg-white/5 border border-white/10 text-white font-medium rounded-2xl transition-all active:scale-95 hover:bg-white/10;
+    @apply px-8 py-4 bg-white/5 border border-[#b026ff]/30 text-white font-medium rounded-2xl transition-all active:scale-95 hover:bg-white/10;
   }
 }
 
@@ -45,7 +46,7 @@
 }
 
 .scanline {
-  background: linear-gradient(to bottom, transparent, rgba(225,29,72,0.05), transparent);
+  background: linear-gradient(to bottom, transparent, rgba(176,38,255,0.1), transparent);
   animation: scanline 8s linear infinite;
 }
 
